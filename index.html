@@ -269,9 +269,12 @@ const camBtn=document.getElementById('camBtn');
 
 async function startCam(){
   try{
-    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+    stream=await navigator.mediaDevices.getUserMedia({video:{
+      facingMode:{ideal:'environment'},
+      width:{ideal:1920}, height:{ideal:1080}}});
     video.srcObject=stream; video.hidden=false; reticle.hidden=false; stageMsg.hidden=true;
     await video.play();
+    try{ await stream.getVideoTracks()[0].applyConstraints({advanced:[{focusMode:'continuous'}]}); }catch(e){}
     camBtn.innerHTML='Escaneando…'; camBtn.disabled=true;
     tick();
   }catch(e){
@@ -281,10 +284,14 @@ async function startCam(){
 }
 function tick(){
   if(video.readyState===video.HAVE_ENOUGH_DATA){
-    canvas.width=video.videoWidth; canvas.height=video.videoHeight;
-    ctx.drawImage(video,0,0,canvas.width,canvas.height);
-    const img=ctx.getImageData(0,0,canvas.width,canvas.height);
-    const qr=jsQR(img.data,img.width,img.height,{inversionAttempts:"attemptBoth"});
+    const vw=video.videoWidth, vh=video.videoHeight;
+    // recorta o quadrado central (área da mira) p/ o QR encher o quadro
+    const side=Math.floor(Math.min(vw,vh)*0.8);
+    const sx=Math.floor((vw-side)/2), sy=Math.floor((vh-side)/2);
+    canvas.width=side; canvas.height=side;
+    ctx.drawImage(video, sx,sy,side,side, 0,0,side,side);
+    const img=ctx.getImageData(0,0,side,side);
+    const qr=jsQR(img.data,side,side,{inversionAttempts:"attemptBoth"});
     if(qr&&qr.data) show(qr.data);
   }
   raf=requestAnimationFrame(tick);
