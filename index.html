@@ -220,7 +220,8 @@ function norm(s){return (s||'').trim().replace(/\s+/g,'');}
 function matches(raw){
   const q=norm(raw); if(!q) return [];
   if(byWhs[q]) return [byWhs[q]];
-  return PRODUTOS.filter(p=>p.whs.includes(q)||q.includes(p.whs));
+  // casa pelo FINAL do código (é o que se lê na etiqueta), não pelo meio
+  return PRODUTOS.filter(p=>p.whs===q||p.whs.endsWith(q)||q.endsWith(p.whs));
 }
 function show(raw){
   const code=norm(raw);
