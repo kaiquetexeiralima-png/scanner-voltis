@@ -1,0 +1,327 @@
+<title>Conferência de Etiquetas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js"></script>
+<style>
+  :root{
+    --bg:#f4f1ee; --surface:#ffffff; --surface-2:#faf7f4; --line:#e5ded7;
+    --ink:#241f1b; --ink-2:#6d6357; --accent:#ee4d2d; --accent-ink:#ffffff;
+    --ok:#1f8a54; --ok-bg:#e6f4ec; --warn:#b4690e;
+    --chip-dark:#2b2622; --chip-light:#efe9e2; --chip-light-ink:#5a5147;
+    --shadow:0 1px 2px rgba(60,40,25,.06),0 8px 24px rgba(60,40,25,.08);
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --bg:#17130f; --surface:#221c17; --surface-2:#1c1712; --line:#332a22;
+      --ink:#f2ece4; --ink-2:#a2968a; --accent:#ff6a48; --accent-ink:#1a0f0a;
+      --ok:#4cc684; --ok-bg:#132a1f; --warn:#e0a24a;
+      --chip-dark:#0e0b08; --chip-light:#3a322a; --chip-light-ink:#d8cfc4;
+      --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px rgba(0,0,0,.45);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#17130f; --surface:#221c17; --surface-2:#1c1712; --line:#332a22;
+    --ink:#f2ece4; --ink-2:#a2968a; --accent:#ff6a48; --accent-ink:#1a0f0a;
+    --ok:#4cc684; --ok-bg:#132a1f; --warn:#e0a24a;
+    --chip-dark:#0e0b08; --chip-light:#3a322a; --chip-light-ink:#d8cfc4;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px rgba(0,0,0,.45);
+  }
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);
+    font-family:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+    line-height:1.45;-webkit-text-size-adjust:100%}
+  .wrap{max-width:520px;margin:0 auto;padding:16px 16px 40px;
+    display:flex;flex-direction:column;gap:16px}
+  header{display:flex;align-items:center;gap:10px;padding-top:4px}
+  .mark{width:34px;height:34px;border-radius:9px;background:var(--accent);
+    display:grid;place-items:center;flex:none;box-shadow:var(--shadow)}
+  .mark svg{width:20px;height:20px;display:block}
+  h1{font-size:1.06rem;font-weight:700;margin:0;letter-spacing:-.01em}
+  .sub{font-size:.72rem;color:var(--ink-2);margin:0;
+    text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+
+  .scanner{background:var(--surface);border:1px solid var(--line);
+    border-radius:18px;box-shadow:var(--shadow);overflow:hidden}
+  .stage{position:relative;aspect-ratio:1/1;background:#0c0906;
+    display:grid;place-items:center}
+  #video,#snap{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .reticle{position:absolute;inset:15%;border:2px solid rgba(255,255,255,.9);
+    border-radius:16px;box-shadow:0 0 0 100vmax rgba(0,0,0,.28);pointer-events:none}
+  .reticle::after{content:"";position:absolute;left:0;right:0;height:2px;
+    background:var(--accent);top:50%;box-shadow:0 0 10px var(--accent);
+    animation:sweep 2.2s ease-in-out infinite}
+  @keyframes sweep{0%,100%{top:8%}50%{top:92%}}
+  @media (prefers-reduced-motion:reduce){.reticle::after{animation:none;top:50%}}
+  .stage-msg{color:#cbb;font-size:.82rem;text-align:center;padding:0 28px;z-index:1}
+  .stage-msg svg{width:34px;height:34px;opacity:.7;margin-bottom:8px}
+  .controls{display:flex;gap:8px;padding:12px}
+  .btn{flex:1;border:1px solid var(--line);background:var(--surface-2);
+    color:var(--ink);font:inherit;font-weight:600;font-size:.9rem;
+    padding:12px 10px;border-radius:12px;cursor:pointer;display:flex;
+    align-items:center;justify-content:center;gap:7px;-webkit-tap-highlight-color:transparent}
+  .btn svg{width:17px;height:17px}
+  .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+  .btn:active{transform:translateY(1px)}
+  .btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  input[type=file]{display:none}
+  .manual{padding:0 12px 14px;display:flex;flex-direction:column;gap:6px}
+  .manual label{font-size:.72rem;color:var(--ink-2);font-weight:600;
+    text-transform:uppercase;letter-spacing:.05em}
+  .manual-row{display:flex;gap:8px}
+  #manualInput{flex:1;font:inherit;font-family:"IBM Plex Mono",monospace;font-size:1rem;
+    padding:11px 13px;border-radius:11px;border:1px solid var(--line);
+    background:var(--surface-2);color:var(--ink)}
+  #manualInput:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
+
+  .result{border-radius:16px;border:1px solid var(--line);background:var(--surface);
+    box-shadow:var(--shadow);padding:16px;display:flex;flex-direction:column;gap:12px}
+  .result[data-state="hit"]{border-color:var(--ok);
+    box-shadow:0 0 0 3px var(--ok-bg),var(--shadow)}
+  .result[data-state="miss"]{border-color:var(--warn)}
+  .r-top{display:flex;align-items:center;gap:8px}
+  .status{font-size:.7rem;font-weight:700;text-transform:uppercase;
+    letter-spacing:.08em;padding:4px 9px;border-radius:999px;
+    background:var(--surface-2);color:var(--ink-2)}
+  .result[data-state="hit"] .status{background:var(--ok-bg);color:var(--ok)}
+  .result[data-state="miss"] .status{background:#f7ecd9;color:var(--warn)}
+  .r-name{font-size:1.14rem;font-weight:700;margin:0;letter-spacing:-.01em;text-wrap:balance}
+  .r-meta{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .chip{font-size:.76rem;font-weight:600;padding:5px 10px;border-radius:8px;
+    display:inline-flex;align-items:center;gap:6px}
+  .chip.folha{background:var(--accent);color:var(--accent-ink)}
+  .chip.qtd{background:var(--surface-2);color:var(--ink-2);border:1px solid var(--line)}
+  .chip.cor{border:1px solid var(--line)}
+  .dot{width:10px;height:10px;border-radius:50%;border:1px solid rgba(0,0,0,.15)}
+  .r-code{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.8rem;
+    color:var(--ink-2);word-break:break-all;background:var(--surface-2);
+    padding:8px 10px;border-radius:8px;border:1px solid var(--line)}
+
+  .cat-head{display:flex;justify-content:space-between;align-items:baseline;
+    margin:4px 2px -4px}
+  .cat-head h2{font-size:.82rem;font-weight:700;text-transform:uppercase;
+    letter-spacing:.07em;margin:0}
+  .cat-head span{font-size:.76rem;color:var(--ink-2);font-family:"IBM Plex Mono",monospace}
+  .catalog{display:flex;flex-direction:column;gap:8px}
+  .item{display:flex;gap:12px;align-items:center;background:var(--surface);
+    border:1px solid var(--line);border-radius:13px;padding:11px 13px;
+    transition:border-color .15s,background .15s}
+  .item.on{border-color:var(--ok);background:var(--ok-bg)}
+  .swatch{width:40px;height:40px;border-radius:9px;flex:none;display:grid;
+    place-items:center;font-family:"IBM Plex Mono",monospace;font-weight:600;
+    font-size:.66rem;color:var(--accent-ink);background:var(--accent);text-align:center;line-height:1.05}
+  .it-body{flex:1;min-width:0}
+  .it-name{font-size:.92rem;font-weight:600;margin:0;line-height:1.25}
+  .it-sub{font-size:.74rem;color:var(--ink-2);margin:2px 0 0;
+    font-family:"IBM Plex Mono",monospace}
+  .it-qty{font-size:.78rem;font-weight:600;color:var(--ink-2);white-space:nowrap;flex:none;
+    text-align:right}
+  footer{color:var(--ink-2);font-size:.72rem;text-align:center;margin-top:6px;line-height:1.5}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 4h4v4H4zM16 4h4v4h-4zM4 16h4v4H4z"/><path d="M16 16h1.5M20 16v4M16 20h4"/>
+      </svg>
+    </div>
+    <div>
+      <p class="sub">Voltis Full · Coleta 17/09</p>
+      <h1>Conferência de Etiquetas</h1>
+    </div>
+  </header>
+
+  <div class="scanner">
+    <div class="stage">
+      <video id="video" playsinline muted hidden></video>
+      <canvas id="snap" hidden></canvas>
+      <div class="reticle" id="reticle" hidden></div>
+      <div class="stage-msg" id="stageMsg">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3.4"/>
+        </svg>
+        <div>Toque em <b>Escanear etiqueta</b> → <b>Tirar Foto</b><br>ou digite o SKU no campo abaixo</div>
+      </div>
+    </div>
+    <div class="controls">
+      <button class="btn primary" id="photoBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        Escanear etiqueta
+      </button>
+      <button class="btn" id="camBtn" title="Tentar câmera ao vivo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l4.55-2.28A1 1 0 0 1 21 8.6v6.8a1 1 0 0 1-1.45.9L15 14M3 8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        Ao vivo
+      </button>
+      <input type="file" id="fileInput" accept="image/*">
+    </div>
+    <div class="manual">
+      <label for="manualInput">Ou digite os últimos dígitos do SKU da etiqueta</label>
+      <div class="manual-row">
+        <input id="manualInput" type="text" inputmode="numeric" autocomplete="off"
+          placeholder="ex: 753, 754, 115, 732…">
+      </div>
+    </div>
+  </div>
+
+  <div class="result" id="result" data-state="idle">
+    <div class="r-top">
+      <span class="status" id="rStatus">Aguardando leitura</span>
+    </div>
+    <h3 class="r-name" id="rName">Escaneie uma etiqueta para identificar o produto</h3>
+    <div class="r-meta" id="rMeta" hidden></div>
+    <div class="r-code" id="rCode" hidden></div>
+  </div>
+
+  <div class="cat-head">
+    <h2>Catálogo do envio</h2>
+    <span>90 un · 9 folhas</span>
+  </div>
+  <div class="catalog" id="catalog"></div>
+
+  <footer>
+    Cada etiqueta traz o QR com o <b>SKU de armazém</b>. A leitura casa com este catálogo.<br>
+    Confira a variação (Preto × Branco) antes de colar.
+  </footer>
+</div>
+
+<script>
+const PRODUTOS = [
+  {whs:"44184399920_441504186115", nome:"Havit H612BT Pro Headset ANC", variacao:"Preto Pro ANC", cor:"#2b2622", folhas:"Folhas 1–2", qtd:20, tag:"H612BT\nPRO"},
+  {whs:"44084399907_436504178753", nome:"Havit H612BT 50h Bateria", variacao:"Preto Pro ANC", cor:"#2b2622", folhas:"Folhas 6–7", qtd:20, tag:"H612BT\n50h P"},
+  {whs:"44084399907_436504178754", nome:"Havit H612BT 50h Bateria", variacao:"Branco Pro ANC", cor:"#efe9e2", folhas:"Folhas 8–9", qtd:20, tag:"H612BT\n50h B"},
+  {whs:"50567771582_262955889732", nome:"Havit Gamenote H2002d", variacao:"Headset com fio", cor:"#2b2622", folhas:"Folha 3", qtd:10, tag:"H2002d"},
+  {whs:"27045782843_396504181814", nome:"H'maston SNS12 Gamer RGB", variacao:"Sem fio LED", cor:"#ee4d2d", folhas:"Folhas 4–5", qtd:15, tag:"SNS12"},
+  {whs:"57417762149_311504775364", nome:"Havit Gamenote Fuxi H7", variacao:"BT 2.4GHz Type-C", cor:"#2b2622", folhas:"Folha 4", qtd:5, tag:"FUXI\nH7"},
+];
+const byWhs = Object.fromEntries(PRODUTOS.map(p=>[p.whs,p]));
+
+// ---- catálogo (estado em repouso) ----
+const catEl = document.getElementById('catalog');
+PRODUTOS.forEach(p=>{
+  const el=document.createElement('div');
+  el.className='item'; el.dataset.whs=p.whs;
+  el.innerHTML=`<div class="swatch">${p.tag.replace('\n','<br>')}</div>
+    <div class="it-body">
+      <p class="it-name">${p.nome}</p>
+      <p class="it-sub">${p.variacao} · ${p.folhas}</p>
+    </div>
+    <div class="it-qty">${p.qtd} un</div>`;
+  catEl.appendChild(el);
+});
+
+// ---- resultado ----
+const result=document.getElementById('result');
+const rStatus=document.getElementById('rStatus'), rName=document.getElementById('rName');
+const rMeta=document.getElementById('rMeta'), rCode=document.getElementById('rCode');
+let lastCode=null;
+
+function norm(s){return (s||'').trim().replace(/\s+/g,'');}
+function matches(raw){
+  const q=norm(raw); if(!q) return [];
+  if(byWhs[q]) return [byWhs[q]];
+  return PRODUTOS.filter(p=>p.whs.includes(q)||q.includes(p.whs));
+}
+function show(raw){
+  const code=norm(raw);
+  if(code && code===lastCode) return;
+  lastCode=code;
+  const ms=matches(code);
+  if(ms.length>1){
+    document.querySelectorAll('.item').forEach(i=>i.classList.remove('on'));
+    result.dataset.state='miss'; rStatus.textContent='Ambíguo';
+    rName.textContent='Digite mais dígitos'; rMeta.hidden=false;
+    rMeta.innerHTML=`<span class="chip qtd">${ms.length} produtos batem com "${code}"</span>`;
+    rCode.hidden=true; return;
+  }
+  const p=ms[0]||null;
+  document.querySelectorAll('.item').forEach(i=>i.classList.remove('on'));
+  rCode.hidden=false; rCode.textContent=code||'—';
+  if(p){
+    result.dataset.state='hit';
+    rStatus.textContent='Identificado';
+    rName.textContent=p.nome;
+    const dark = p.cor==='#efe9e2';
+    rMeta.hidden=false;
+    rMeta.innerHTML=`<span class="chip folha">${p.folhas}</span>
+      <span class="chip qtd">${p.qtd} unidades</span>
+      <span class="chip cor" style="background:${p.cor};color:${dark?'#5a5147':'#fff'}">
+        <span class="dot" style="background:${p.cor}"></span>${p.variacao}</span>`;
+    const row=document.querySelector(`.item[data-whs="${p.whs}"]`);
+    if(row){row.classList.add('on');row.scrollIntoView({behavior:'smooth',block:'center'});}
+    if(navigator.vibrate) navigator.vibrate(45);
+  }else{
+    result.dataset.state='miss';
+    rStatus.textContent='Fora do envio';
+    rName.textContent='Código não está neste envio';
+    rMeta.hidden=false;
+    rMeta.innerHTML=`<span class="chip qtd">Confira se é etiqueta de produto (não de caixa)</span>`;
+    if(navigator.vibrate) navigator.vibrate([30,40,30]);
+  }
+}
+
+// ---- câmera ao vivo ----
+const video=document.getElementById('video'), reticle=document.getElementById('reticle');
+const stageMsg=document.getElementById('stageMsg');
+const canvas=document.createElement('canvas'), ctx=canvas.getContext('2d',{willReadFrequently:true});
+let stream=null, raf=null;
+const camBtn=document.getElementById('camBtn');
+
+async function startCam(){
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+    video.srcObject=stream; video.hidden=false; reticle.hidden=false; stageMsg.hidden=true;
+    await video.play();
+    camBtn.innerHTML='Escaneando…'; camBtn.disabled=true;
+    tick();
+  }catch(e){
+    stageMsg.hidden=false;
+    stageMsg.innerHTML='<div>Câmera ao vivo bloqueada aqui.<br>Use <b>Escanear etiqueta</b> para fotografar o QR.</div>';
+  }
+}
+function tick(){
+  if(video.readyState===video.HAVE_ENOUGH_DATA){
+    canvas.width=video.videoWidth; canvas.height=video.videoHeight;
+    ctx.drawImage(video,0,0,canvas.width,canvas.height);
+    const img=ctx.getImageData(0,0,canvas.width,canvas.height);
+    const qr=jsQR(img.data,img.width,img.height,{inversionAttempts:"attemptBoth"});
+    if(qr&&qr.data) show(qr.data);
+  }
+  raf=requestAnimationFrame(tick);
+}
+camBtn.addEventListener('click',startCam);
+
+// ---- foto (fallback universal iOS) ----
+const fileInput=document.getElementById('fileInput');
+document.getElementById('photoBtn').addEventListener('click',()=>fileInput.click());
+fileInput.addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const img=new Image();
+  img.onload=()=>{
+    const c=document.createElement('canvas'); const s=Math.min(1000/Math.max(img.width,img.height),1);
+    c.width=img.width*s; c.height=img.height*s;
+    const cx=c.getContext('2d'); cx.drawImage(img,0,0,c.width,c.height);
+    const d=cx.getImageData(0,0,c.width,c.height);
+    const qr=jsQR(d.data,d.width,d.height,{inversionAttempts:"attemptBoth"});
+    lastCode=null;
+    if(qr&&qr.data) show(qr.data);
+    else{ result.dataset.state='miss'; rStatus.textContent='Sem leitura';
+      rName.textContent='Não achei o QR na foto'; rMeta.hidden=false;
+      rMeta.innerHTML='<span class="chip qtd">Aproxime mais e evite reflexo/borrão</span>';
+      rCode.hidden=true; }
+    URL.revokeObjectURL(img.src);
+  };
+  img.src=URL.createObjectURL(f);
+  fileInput.value='';
+});
+
+// ---- busca manual ----
+const manualInput=document.getElementById('manualInput');
+manualInput.addEventListener('input',()=>{
+  const v=norm(manualInput.value);
+  if(v.length>=2){ lastCode=null; show(v); }
+});
+
+// ---- auto-inicia câmera ao vivo (https) ----
+window.addEventListener('load',()=>{ setTimeout(startCam,300); });
+</script>
