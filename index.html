@@ -3,6 +3,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
 <style>
   :root{
     --bg:#f4f1ee; --surface:#ffffff; --surface-2:#faf7f4; --line:#e5ded7;
@@ -268,19 +269,30 @@ const canvas=document.createElement('canvas'), ctx=canvas.getContext('2d',{willR
 let stream=null, raf=null;
 const camBtn=document.getElementById('camBtn');
 
+let zxingControls=null;
 async function startCam(){
+  video.hidden=false; reticle.hidden=false; stageMsg.hidden=true;
+  camBtn.innerHTML='Escaneando…'; camBtn.disabled=true;
+  const constraints={video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}}};
+  // 1) ZXing contínuo (robusto p/ vídeo)
   try{
-    stream=await navigator.mediaDevices.getUserMedia({video:{
-      facingMode:{ideal:'environment'},
-      width:{ideal:1920}, height:{ideal:1080}}});
-    video.srcObject=stream; video.hidden=false; reticle.hidden=false; stageMsg.hidden=true;
-    await video.play();
-    try{ await stream.getVideoTracks()[0].applyConstraints({advanced:[{focusMode:'continuous'}]}); }catch(e){}
-    camBtn.innerHTML='Escaneando…'; camBtn.disabled=true;
+    const reader=new ZXing.BrowserQRCodeReader();
+    zxingControls=await reader.decodeFromConstraints(constraints,video,(result)=>{
+      if(result){ const t=result.getText?result.getText():result.text; if(t) show(t); }
+    });
+    try{ await video.srcObject.getVideoTracks()[0].applyConstraints({advanced:[{focusMode:'continuous'}]}); }catch(_){}
+    return;
+  }catch(e){}
+  // 2) fallback jsQR
+  try{
+    stream=await navigator.mediaDevices.getUserMedia(constraints);
+    video.srcObject=stream; await video.play();
+    try{ await stream.getVideoTracks()[0].applyConstraints({advanced:[{focusMode:'continuous'}]}); }catch(_){}
     tick();
-  }catch(e){
-    stageMsg.hidden=false;
-    stageMsg.innerHTML='<div>Câmera ao vivo bloqueada aqui.<br>Use <b>Escanear etiqueta</b> para fotografar o QR.</div>';
+  }catch(e2){
+    video.hidden=true; reticle.hidden=true; stageMsg.hidden=false;
+    camBtn.innerHTML='Ao vivo'; camBtn.disabled=false;
+    stageMsg.innerHTML='<div>Câmera indisponível.<br>Use <b>Escanear etiqueta</b> ou a busca manual.</div>';
   }
 }
 function tick(){
@@ -302,24 +314,44 @@ camBtn.addEventListener('click',startCam);
 // ---- foto (fallback universal iOS) ----
 const fileInput=document.getElementById('fileInput');
 document.getElementById('photoBtn').addEventListener('click',()=>fileInput.click());
-fileInput.addEventListener('change',e=>{
+fileInput.addEventListener('change',async e=>{
   const f=e.target.files[0]; if(!f) return;
-  const img=new Image();
-  img.onload=()=>{
-    const c=document.createElement('canvas'); const s=Math.min(1000/Math.max(img.width,img.height),1);
-    c.width=img.width*s; c.height=img.height*s;
-    const cx=c.getContext('2d'); cx.drawImage(img,0,0,c.width,c.height);
-    const d=cx.getImageData(0,0,c.width,c.height);
-    const qr=jsQR(d.data,d.width,d.height,{inversionAttempts:"attemptBoth"});
-    lastCode=null;
-    if(qr&&qr.data) show(qr.data);
-    else{ result.dataset.state='miss'; rStatus.textContent='Sem leitura';
-      rName.textContent='Não achei o QR na foto'; rMeta.hidden=false;
-      rMeta.innerHTML='<span class="chip qtd">Aproxime mais e evite reflexo/borrão</span>';
-      rCode.hidden=true; }
-    URL.revokeObjectURL(img.src);
-  };
-  img.src=URL.createObjectURL(f);
+  lastCode=null;
+  result.dataset.state='idle'; rStatus.textContent='Lendo foto…';
+  rName.textContent='Processando a imagem…'; rMeta.hidden=true; rCode.hidden=true;
+  const url=URL.createObjectURL(f);
+  let done=false;
+  // 1) ZXing (mais tolerante)
+  try{
+    const res=await new ZXing.BrowserQRCodeReader().decodeFromImageUrl(url);
+    const txt=res&&(res.getText?res.getText():res.text);
+    if(txt){ show(txt); done=true; }
+  }catch(err){}
+  // 2) fallback jsQR em resolução cheia
+  if(!done){
+    await new Promise(resolve=>{
+      const img=new Image();
+      img.onload=()=>{
+        const cap=3000, sc=Math.min(cap/Math.max(img.width,img.height),1);
+        const c=document.createElement('canvas');
+        c.width=Math.round(img.width*sc); c.height=Math.round(img.height*sc);
+        c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+        const d=c.getContext('2d').getImageData(0,0,c.width,c.height);
+        const qr=jsQR(d.data,c.width,c.height,{inversionAttempts:"attemptBoth"});
+        if(qr&&qr.data){ show(qr.data); done=true; }
+        resolve();
+      };
+      img.onerror=resolve; img.src=url;
+    });
+  }
+  if(!done){
+    result.dataset.state='miss'; rStatus.textContent='Sem leitura';
+    rName.textContent='Não consegui ler o QR da foto';
+    rMeta.hidden=false;
+    rMeta.innerHTML='<span class="chip qtd">Aproxime até o QR encher a tela, foco nítido, sem reflexo — ou use a busca manual abaixo</span>';
+    rCode.hidden=true;
+  }
+  URL.revokeObjectURL(url);
   fileInput.value='';
 });
 
